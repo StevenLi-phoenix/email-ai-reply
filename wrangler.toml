@@ -1,0 +1,20 @@
+name = "email-ai-reply"
+main = "worker.js"
+compatibility_date = "2024-09-01"
+
+[vars]
+# Required at runtime
+OPENAI_MODEL = "gpt-4o-mini"
+SystemPrompt = "You are an assistant that drafts concise, polite, and professional email replies. Keep responses brief and actionable."
+
+# Optional settings
+MAX_TOKENS = 700
+TEMPERATURE = 0.5
+OPENAI_TIMEOUT_MS = 20000
+FROM_ADDRESS = "ai@lishuyu.app"
+SERVICE_ADDRESS = "ai@lishuyu.app"
+MAIL_DOMAIN = "ai.lishuyu.app"
+
+# ALLOW_DOMAINS = "example.com,another.com"
+# BLOCK_DOMAINS = "blocked.com"
+

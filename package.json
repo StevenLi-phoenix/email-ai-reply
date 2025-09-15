@@ -1,0 +1,14 @@
+{
+  "name": "email-ai-reply",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "npx wrangler versions upload",
+    "deploy": "npx wrangler versions upload",
+    "preview": "npx wrangler dev --local"
+  },
+  "devDependencies": {
+  }
+}
+
