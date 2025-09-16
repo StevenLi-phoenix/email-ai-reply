@@ -9,6 +9,7 @@ SystemPrompt = "You are an assistant that drafts concise, polite, and profession
 
 # Optional settings
 MAX_TOKENS = 700
+MAX_COMPLETION_TOKENS = 700
 TEMPERATURE = 0.5
 OPENAI_TIMEOUT_MS = 20000
 FROM_ADDRESS = "ai@lishuyu.app"
@@ -17,4 +18,3 @@ MAIL_DOMAIN = "ai.lishuyu.app"
 
 # ALLOW_DOMAINS = "example.com,another.com"
 # BLOCK_DOMAINS = "blocked.com"
-

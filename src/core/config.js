@@ -6,6 +6,7 @@ export function loadConfig(env = {}) {
       env.SystemPrompt ||
       "You are an assistant that drafts concise, polite, and professional email replies. Keep responses brief and actionable.",
     maxTokens: toInt(env.MAX_TOKENS, 700),
+    maxCompletionTokens: toInt(env.MAX_COMPLETION_TOKENS, toInt(env.MAX_TOKENS, 700)),
     temperature: toFloat(env.TEMPERATURE, 0.5),
     timeoutMs: toInt(env.OPENAI_TIMEOUT_MS, 20000),
     fromAddress: env.FROM_ADDRESS || "ai@lishuyu.app",
@@ -40,4 +41,3 @@ function parseCsv(v) {
     .map((s) => s.trim().toLowerCase())
     .filter(Boolean);
 }
-
