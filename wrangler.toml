@@ -18,8 +18,8 @@ OPENAI_ENABLE_WEB_SEARCH = true
 OPENAI_ENABLE_PYTHON = true
 
 # Optional settings
-MAX_TOKENS = 16384
-MAX_COMPLETION_TOKENS = 4096
+MAX_TOKENS = 65536
+MAX_COMPLETION_TOKENS = 8192
 # Legacy (optional): latest models do not support `temperature`
 # TEMPERATURE = 0.5
 OPENAI_TIMEOUT_MS = 20000

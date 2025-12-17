@@ -28,6 +28,16 @@ export default {
 
     // Decode raw email
     const rawBuffer = await new Response(message.raw).arrayBuffer();
+    const rawSize = rawBuffer.byteLength;
+    // Cloudflare Email has limits on which messages can be replied to; fail fast and notify sender.
+    if (rawSize > 64_000) {
+      log.warn("too_large", { rawSize });
+      rejectWithHint(
+        message,
+        "自动回复失败：邮件过大，Cloudflare 无法对该邮件执行 reply。请移除附件/长邮件链后重新发送一封更短的邮件再试。\n\nAuto-reply failed: email too large to reply. Please resend a shorter message (remove attachments / long quoted history)."
+      );
+      return;
+    }
     const parsed = parseEmail(new Uint8Array(rawBuffer));
     const originalMessageId =
       message.headers.get("Message-ID") ||
@@ -69,7 +79,20 @@ export default {
     });
 
     const replyMsg = new EmailMessage(fromAddress, replyTo, composed.stream);
-    await message.reply(replyMsg);
+    try {
+      await message.reply(replyMsg);
+    } catch (err) {
+      const msg = err?.message || String(err);
+      log.error("reply_failed", { error: msg });
+      if (/not repliable|exceeds reply limit/i.test(msg)) {
+        rejectWithHint(
+          message,
+          "自动回复失败：该邮件不可回复或已超过 Cloudflare reply 限制。请发送更短的邮件（移除附件/长引用）后重试。\n\nAuto-reply failed: email not repliable or reply limit exceeded. Please resend a shorter message."
+        );
+        return;
+      }
+      throw err;
+    }
     log.info("sent", {
       to: replyTo,
       subject: composed.subject,
@@ -97,4 +120,16 @@ function extractEmail(v) {
   if (m) return m[1];
   const at = /[^\s]+@[^\s]+/.exec(v);
   return at ? at[0] : v.trim();
+}
+
+function rejectWithHint(message, reason) {
+  try {
+    if (typeof message?.setReject === "function") {
+      message.setReject(reason);
+      return true;
+    }
+  } catch {
+    // ignore
+  }
+  return false;
 }

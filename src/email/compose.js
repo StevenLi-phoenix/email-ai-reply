@@ -1,20 +1,25 @@
 const CRLF = "\r\n";
 
-export function composeReply({ fromAddress, to, original, replyText }) {
+export function composeReply({ fromAddress, to, original, replyText, quoteMaxChars = 4000 }) {
   const subject = ensureRe(original.subject || "");
   const msgId = makeMessageId(domainOf(fromAddress) || "local");
   const refs = buildReferences(original);
 
   // Plain text body
-  const quoted = quoteOriginal(original);
-  const textBody = `${replyText}\n\n${quoted}`.replace(/\r?\n/g, "\n");
+  const quoted = quoteOriginal(original, quoteMaxChars);
+  const textBody = (quoted ? `${replyText}\n\n${quoted}` : `${replyText}`).replace(/\r?\n/g, "\n");
 
   // Simple HTML version mirroring text
+  const quotedHtml = quoteSnippet(original, quoteMaxChars);
   const htmlBody = `<!doctype html><html><body><div>${escapeHtml(
     replyText
-  ).replace(/\n/g, "<br>")}</div><hr><blockquote style="border-left:3px solid #ccc;padding-left:8px;color:#555">${escapeHtml(
-    (original.text || original.htmlText || "").slice(0, 4000)
-  ).replace(/\n/g, "<br>")}</blockquote></body></html>`;
+  ).replace(/\n/g, "<br>")}</div>${
+    quotedHtml
+      ? `<hr><blockquote style="border-left:3px solid #ccc;padding-left:8px;color:#555">${escapeHtml(
+          quotedHtml
+        ).replace(/\n/g, "<br>")}</blockquote>`
+      : ""
+  }</body></html>`;
 
   const boundary = `b_${Math.random().toString(36).slice(2)}`;
   const headers = [
@@ -108,16 +113,24 @@ function extractMessageIds(value) {
   return matches.map((m) => m.trim()).filter((m) => m.startsWith("<") && m.endsWith(">") && !/\s/.test(m));
 }
 
-function quoteOriginal(orig) {
+function quoteOriginal(orig, maxChars) {
   const date = orig.date || new Date().toUTCString();
   const from = orig.from || "";
   const subj = orig.subject || "";
-  const content = (orig.text || orig.htmlText || "").trim();
+  const content = quoteSnippet(orig, maxChars);
+  if (!content) return "";
   const quoted = content
     .split(/\r?\n/)
     .map((l) => "> " + l)
     .join("\n");
   return `On ${date}, ${from} wrote:\nSubject: ${subj}\n\n${quoted}`;
+}
+
+function quoteSnippet(orig, maxChars = 4000) {
+  if (!maxChars || maxChars <= 0) return "";
+  const content = (orig.text || orig.htmlText || "").trim();
+  if (!content) return "";
+  return content.length > maxChars ? content.slice(0, maxChars) : content;
 }
 
 function escapeHtml(s) {
