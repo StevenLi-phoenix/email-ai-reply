@@ -20,7 +20,8 @@ OPENAI_ENABLE_PYTHON = true
 # Optional settings
 MAX_TOKENS = 700
 MAX_COMPLETION_TOKENS = 700
-TEMPERATURE = 0.5
+# Legacy (optional): latest models do not support `temperature`
+# TEMPERATURE = 0.5
 OPENAI_TIMEOUT_MS = 20000
 
 # ALLOW_DOMAINS = "example.com,another.com"

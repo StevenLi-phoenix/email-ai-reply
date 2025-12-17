@@ -53,7 +53,7 @@ export default {
       ).trim();
 
       // Generate AI reply
-      const aiText = await generateReply({ cfg, subject, content: userContent, log });
+      const aiText = await generateReply({ cfg, subject, content: userContent });
 
       // Compose MIME reply (text + optional HTML)
       const composed = composeReply({

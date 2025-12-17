@@ -8,7 +8,8 @@ export function loadConfig(env = {}) {
       "You are an assistant that drafts concise, polite, and professional email replies. Keep responses brief and actionable.",
     maxTokens: toInt(env.MAX_TOKENS, 700),
     maxCompletionTokens: toInt(env.MAX_COMPLETION_TOKENS, toInt(env.MAX_TOKENS, 700)),
-    temperature: toFloat(env.TEMPERATURE, 0.5),
+    // Legacy: only include temperature when explicitly configured (some models reject it).
+    temperature: hasValue(env.TEMPERATURE) ? toFloat(env.TEMPERATURE, undefined) : undefined,
     timeoutMs: toInt(env.OPENAI_TIMEOUT_MS, 20000),
     enableWebSearch: toBool(env.OPENAI_ENABLE_WEB_SEARCH, true),
     enablePython: toBool(env.OPENAI_ENABLE_PYTHON, true),
@@ -32,6 +33,10 @@ function toInt(v, d) {
 function toFloat(v, d) {
   const n = parseFloat(v);
   return Number.isFinite(n) ? n : d;
+}
+
+function hasValue(v) {
+  return !(v == null || String(v).trim() === "");
 }
 
 function toBool(v, d) {

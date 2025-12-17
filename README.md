@@ -81,9 +81,10 @@ npx wrangler versions upload
 - `MAX_COMPLETION_TOKENS`（默认：`700`）
 
   - Responses API 的 `max_output_tokens`
-- `TEMPERATURE`（默认：`0.5`）
+- `TEMPERATURE`（默认：空；*遗留的）
 
-  - 生成温度，越大越发散
+  - 仅在你显式设置 `TEMPERATURE` 时才会把 `temperature` 参数传给 OpenAI
+  - 部分模型不支持该参数；建议保持不设置
 
 ### 工具（Web Search / Python）
 
