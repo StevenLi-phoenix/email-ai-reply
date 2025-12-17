@@ -4,7 +4,7 @@ compatibility_date = "2024-09-01"
 
 [vars]
 # Required at runtime
-OPENAI_MODEL = "gpt-5.2"
+OPENAI_MODEL = "gpt-5.2-chat-latest"
 SystemPrompt = "You are an assistant that drafts concise, polite, and professional email replies. Keep responses brief and actionable."
 OPENAI_BASE_URL = "https://api.openai.com"
 OPENAI_ENABLE_WEB_SEARCH = true
