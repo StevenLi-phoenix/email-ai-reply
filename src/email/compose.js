@@ -75,13 +75,37 @@ function buildReferences(orig) {
   // Do not use the incoming In-Reply-To here (that points to the previous message in the thread).
   const inReplyTo = orig.messageId ? String(orig.messageId) : "";
 
-  const chain = [];
-  if (orig.references) chain.push(String(orig.references).trim());
-  if (orig.inReplyTo) chain.push(String(orig.inReplyTo).trim());
-  if (orig.messageId) chain.push(String(orig.messageId).trim());
+  const ids = [];
+  ids.push(...extractMessageIds(orig.references));
+  ids.push(...extractMessageIds(orig.inReplyTo));
+  ids.push(...extractMessageIds(orig.messageId));
 
-  const references = chain.filter(Boolean).join(" ");
+  const seen = new Set();
+  const deduped = [];
+  for (const id of ids) {
+    if (seen.has(id)) continue;
+    seen.add(id);
+    deduped.push(id);
+  }
+
+  // Keep it small to avoid header limits and provider strictness.
+  const capped = deduped.slice(-50);
+  let references = capped.join(" ").trim();
+  if (references.length > 900) {
+    // Prefer keeping the newest IDs at the end.
+    const parts = capped.slice();
+    while (parts.length && parts.join(" ").length > 900) parts.shift();
+    references = parts.join(" ").trim();
+  }
   return { inReplyTo, references };
+}
+
+function extractMessageIds(value) {
+  if (!value) return [];
+  const s = String(value);
+  const matches = s.match(/<[^<>\s]+>/g) || [];
+  // Defensive: Cloudflare/provider validation can be strict.
+  return matches.map((m) => m.trim()).filter((m) => m.startsWith("<") && m.endsWith(">") && !/\s/.test(m));
 }
 
 function quoteOriginal(orig) {
