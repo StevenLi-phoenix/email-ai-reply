@@ -53,6 +53,9 @@ export function parseEmail(rawBytes) {
   const references = headers.get("references") || "";
   const inReplyTo = headers.get("in-reply-to") || "";
 
+  const textFull = text ? normalizeNewlines(text) : null;
+  const htmlFull = html ? stripHtml(html) : null;
+
   return {
     headers,
     subject,
@@ -62,8 +65,12 @@ export function parseEmail(rawBytes) {
     messageId,
     references,
     inReplyTo,
-    text: text ? normalizeNewlines(stripQuotedNoise(text)) : null,
-    htmlText: html ? stripHtml(html) : null,
+    // Full content including quoted history (email chain) for quoting/visibility.
+    text: textFull,
+    htmlText: htmlFull,
+    // A shorter "main message" variant (without long quoted history) for prompting.
+    textMain: textFull ? normalizeNewlines(stripQuotedNoise(textFull)) : null,
+    htmlTextMain: htmlFull ? normalizeNewlines(stripQuotedNoise(htmlFull)) : null,
   };
 }
 
@@ -193,4 +200,3 @@ function stripQuotedNoise(text) {
   }
   return text;
 }
-

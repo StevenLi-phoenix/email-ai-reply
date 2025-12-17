@@ -42,7 +42,13 @@ export default {
 
       // Prepare prompt content for AI
       const subject = parsed.subject || message.headers.get("Subject") || "";
-      const userContent = (parsed.text || parsed.htmlText || "").trim();
+      const userContent = (
+        parsed.textMain ||
+        parsed.htmlTextMain ||
+        parsed.text ||
+        parsed.htmlText ||
+        ""
+      ).trim();
 
       // Generate AI reply
       const aiText = await generateReply({ cfg, subject, content: userContent, log });
