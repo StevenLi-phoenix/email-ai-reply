@@ -71,10 +71,15 @@ function domainOf(addr) {
 }
 
 function buildReferences(orig) {
-  const inReplyTo = orig.inReplyTo || orig.messageId || "";
-  let chain = [];
-  if (orig.references) chain.push(orig.references);
-  if (orig.messageId) chain.push(orig.messageId);
+  // Cloudflare's Email `message.reply()` expects In-Reply-To to match the incoming Message-ID.
+  // Do not use the incoming In-Reply-To here (that points to the previous message in the thread).
+  const inReplyTo = orig.messageId ? String(orig.messageId) : "";
+
+  const chain = [];
+  if (orig.references) chain.push(String(orig.references).trim());
+  if (orig.inReplyTo) chain.push(String(orig.inReplyTo).trim());
+  if (orig.messageId) chain.push(String(orig.messageId).trim());
+
   const references = chain.filter(Boolean).join(" ");
   return { inReplyTo, references };
 }

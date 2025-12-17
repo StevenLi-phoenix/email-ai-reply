@@ -19,92 +19,63 @@ export default {
       time: new Date().toISOString(),
     });
 
-    try {
-      // Cloudflare Email Routing already decides which messages reach this Worker.
-      // Use the routed recipient address as the "From" for replies (required by gateway/domain constraints).
-      if (!fromAddress) {
-        log.error("missing_routed_to", { to: recipients.join(",") });
-        return;
-      }
-
-      // Decode raw email
-      const rawBuffer = await new Response(message.raw).arrayBuffer();
-      const parsed = parseEmail(new Uint8Array(rawBuffer));
-
-      // Safety and policy checks
-      if (!shouldReply(parsed.headers, cfg)) {
-        log.info("skipping_auto", {
-          reason: "policy",
-          from: parsed.from || message.from,
-        });
-        return; // drop silently
-      }
-
-      const replyTo = resolveReplyTo(parsed, message.from);
-
-      // Prepare prompt content for AI
-      const subject = parsed.subject || message.headers.get("Subject") || "";
-      const userContent = (
-        parsed.textMain ||
-        parsed.htmlTextMain ||
-        parsed.text ||
-        parsed.htmlText ||
-        ""
-      ).trim();
-
-      // Generate AI reply
-      const aiText = await generateReply({ cfg, subject, content: userContent });
-
-      // Compose MIME reply (text + optional HTML)
-      const composed = composeReply({
-        fromAddress,
-        to: replyTo,
-        original: parsed,
-        replyText: aiText,
-      });
-
-      const replyMsg = new EmailMessage(
-        fromAddress,
-        replyTo,
-        composed.stream
-      );
-
-      await message.reply(replyMsg);
-      log.info("sent", {
-        to: replyTo,
-        subject: composed.subject,
-        bytes: composed.size,
-        snippet: redact(aiText, 256),
-      });
-    } catch (error) {
-      log.error("failed", { error: error?.stack || String(error) });
-      // Best-effort apology reply
-      try {
-        const fallback = composeReply({
-          fromAddress: fromAddress || extractEmail(String(recipients[0] || "")) || message.from,
-          to: message.from,
-          original: {
-            subject: message.headers.get("Subject") || "",
-            headers: new Map(),
-            messageId: message.headers.get("Message-ID") || "",
-            references: "",
-            inReplyTo: "",
-            text: "",
-            htmlText: "",
-            date: new Date().toUTCString(),
-            from: message.from,
-          },
-          replyText:
-            "I apologize, but I encountered an error while processing your email. Please try again later.",
-        });
-
-        const fallbackFrom = fromAddress || extractEmail(String(recipients[0] || "")) || message.from;
-        const replyMsg = new EmailMessage(fallbackFrom, message.from, fallback.stream);
-        await message.reply(replyMsg);
-      } catch (replyErr) {
-        log.error("notify_failed", { error: replyErr?.stack || String(replyErr) });
-      }
+    // Cloudflare Email Routing already decides which messages reach this Worker.
+    // Use the routed recipient address as the "From" for replies (required by gateway/domain constraints).
+    if (!fromAddress) {
+      log.error("missing_routed_to", { to: recipients.join(",") });
+      return;
     }
+
+    // Decode raw email
+    const rawBuffer = await new Response(message.raw).arrayBuffer();
+    const parsed = parseEmail(new Uint8Array(rawBuffer));
+    const originalMessageId =
+      message.headers.get("Message-ID") ||
+      message.headers.get("Message-Id") ||
+      parsed.messageId ||
+      "";
+    const original = { ...parsed, messageId: originalMessageId };
+
+    // Safety and policy checks
+    if (!shouldReply(parsed.headers, cfg)) {
+      log.info("skipping_auto", {
+        reason: "policy",
+        from: parsed.from || message.from,
+      });
+      return; // drop silently
+    }
+
+    const replyTo = resolveReplyTo(parsed, message.from);
+
+    // Prepare prompt content for AI
+    const subject = parsed.subject || message.headers.get("Subject") || "";
+    const userContent = (
+      parsed.textMain ||
+      parsed.htmlTextMain ||
+      parsed.text ||
+      parsed.htmlText ||
+      ""
+    ).trim();
+
+    // Generate AI reply
+    const aiText = await generateReply({ cfg, subject, content: userContent });
+
+    // Compose MIME reply (text + optional HTML)
+    const composed = composeReply({
+      fromAddress,
+      to: replyTo,
+      original,
+      replyText: aiText,
+    });
+
+    const replyMsg = new EmailMessage(fromAddress, replyTo, composed.stream);
+    await message.reply(replyMsg);
+    log.info("sent", {
+      to: replyTo,
+      subject: composed.subject,
+      bytes: composed.size,
+      snippet: redact(aiText, 256),
+    });
   },
 
   async fetch(request, env, ctx) {
