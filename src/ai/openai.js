@@ -7,7 +7,7 @@ export async function generateReply({ cfg, subject, content, log }) {
 
   const tools = [];
   if (cfg.enableWebSearch) tools.push({ type: "web_search_preview" });
-  if (cfg.enablePython) tools.push({ type: "code_interpreter" });
+  if (cfg.enablePython) tools.push({ type: "code_interpreter", container: { type: "auto" } });
 
   const body = {
     model: cfg.model,

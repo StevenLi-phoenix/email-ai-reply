@@ -2,6 +2,13 @@ name = "email-ai-executor"
 main = "worker.js"
 compatibility_date = "2024-09-01"
 
+[observability]
+  [observability.logs]
+  enabled = true
+  head_sampling_rate = 1
+  invocation_logs = true
+  persist = true
+
 [vars]
 # Required at runtime
 OPENAI_MODEL = "gpt-5.2-chat-latest"
