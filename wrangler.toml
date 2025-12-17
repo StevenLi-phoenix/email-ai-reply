@@ -22,9 +22,9 @@ MAX_TOKENS = 700
 MAX_COMPLETION_TOKENS = 700
 TEMPERATURE = 0.5
 OPENAI_TIMEOUT_MS = 20000
-FROM_ADDRESS = "ai@lishuyu.app"
-SERVICE_ADDRESS = "ai@lishuyu.app"
-MAIL_DOMAIN = "ai.lishuyu.app"
+FROM_ADDRESS = "ai@lishuyu.top"
+SERVICE_ADDRESS = "ai@lishuyu.top"
+MAIL_DOMAIN = "ai.lishuyu.top"
 
 # ALLOW_DOMAINS = "example.com,another.com"
 # BLOCK_DOMAINS = "blocked.com"
