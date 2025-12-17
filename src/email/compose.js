@@ -1,8 +1,8 @@
 const CRLF = "\r\n";
 
-export function composeReply({ cfg, to, original, replyText }) {
+export function composeReply({ fromAddress, to, original, replyText }) {
   const subject = ensureRe(original.subject || "");
-  const msgId = makeMessageId(cfg.domain);
+  const msgId = makeMessageId(domainOf(fromAddress) || "local");
   const refs = buildReferences(original);
 
   // Plain text body
@@ -22,7 +22,7 @@ export function composeReply({ cfg, to, original, replyText }) {
     refs.inReplyTo ? `In-Reply-To: ${refs.inReplyTo}` : null,
     refs.references ? `References: ${refs.references}` : null,
     `Subject: ${subject}`,
-    `From: AI Email Assistant <${cfg.fromAddress}>`,
+    `From: AI Email Assistant <${fromAddress}>`,
     `To: ${to}`,
     `MIME-Version: 1.0`,
     `Content-Type: multipart/alternative; boundary="${boundary}"`,
@@ -65,6 +65,11 @@ function makeMessageId(domain) {
   return `<${token}@${domain}>`;
 }
 
+function domainOf(addr) {
+  const m = /@([^>\s]+)/.exec(addr || "");
+  return m ? m[1] : "";
+}
+
 function buildReferences(orig) {
   const inReplyTo = orig.inReplyTo || orig.messageId || "";
   let chain = [];
@@ -93,4 +98,3 @@ function escapeHtml(s) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 }
-

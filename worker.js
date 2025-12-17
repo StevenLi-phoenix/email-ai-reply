@@ -11,6 +11,7 @@ export default {
     const cfg = loadConfig(env);
     const log = createLog({ component: "email" });
     const recipients = Array.isArray(message.to) ? message.to : [message.to];
+    const fromAddress = extractEmail(String(recipients[0] || ""));
     log.info("received", {
       to: recipients.join(","),
       from: message.from,
@@ -19,9 +20,10 @@ export default {
     });
 
     try {
-      // Only handle incoming mail for our address
-      if (!recipients.some((r) => String(r).toLowerCase().includes(cfg.serviceAddress))) {
-        message.reject();
+      // Cloudflare Email Routing already decides which messages reach this Worker.
+      // Use the routed recipient address as the "From" for replies (required by gateway/domain constraints).
+      if (!fromAddress) {
+        log.error("missing_routed_to", { to: recipients.join(",") });
         return;
       }
 
@@ -55,14 +57,14 @@ export default {
 
       // Compose MIME reply (text + optional HTML)
       const composed = composeReply({
-        cfg,
+        fromAddress,
         to: replyTo,
         original: parsed,
         replyText: aiText,
       });
 
       const replyMsg = new EmailMessage(
-        cfg.fromAddress,
+        fromAddress,
         replyTo,
         composed.stream
       );
@@ -79,7 +81,7 @@ export default {
       // Best-effort apology reply
       try {
         const fallback = composeReply({
-          cfg,
+          fromAddress: fromAddress || extractEmail(String(recipients[0] || "")) || message.from,
           to: message.from,
           original: {
             subject: message.headers.get("Subject") || "",
@@ -96,7 +98,8 @@ export default {
             "I apologize, but I encountered an error while processing your email. Please try again later.",
         });
 
-        const replyMsg = new EmailMessage(cfg.fromAddress, message.from, fallback.stream);
+        const fallbackFrom = fromAddress || extractEmail(String(recipients[0] || "")) || message.from;
+        const replyMsg = new EmailMessage(fallbackFrom, message.from, fallback.stream);
         await message.reply(replyMsg);
       } catch (replyErr) {
         log.error("notify_failed", { error: replyErr?.stack || String(replyErr) });
@@ -116,3 +119,11 @@ export default {
     return new Response("Not Found", { status: 404, headers: { "Content-Type": "text/plain" } });
   },
 };
+
+function extractEmail(v) {
+  if (!v) return "";
+  const m = /<([^>]+)>/.exec(v);
+  if (m) return m[1];
+  const at = /[^\s]+@[^\s]+/.exec(v);
+  return at ? at[0] : v.trim();
+}

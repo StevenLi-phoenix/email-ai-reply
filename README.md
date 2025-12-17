@@ -57,7 +57,7 @@ npx wrangler versions upload
 - 触发函数：`export default { async email(message, env, ctx) { ... } }`
 - 需要在 Cloudflare 控制台配置 Email Routing，把目标收件地址路由到该 Worker
 
-不同账号/域名的 Email Routing 配置界面可能略有差异；原则是：将发往 `SERVICE_ADDRESS` 的邮件交给该 Worker 处理。
+不同账号/域名的 Email Routing 配置界面可能略有差异；原则是：将你想自动回复的目标收件地址路由到该 Worker 处理。
 
 ## 配置项（详细）
 
@@ -103,15 +103,10 @@ OpenAI 工具通过 `tools` 参数启用：
 
 ### 邮件行为与策略
 
-- `SERVICE_ADDRESS`
-
-  - 只处理收件人列表（To）里包含该地址的来信，否则直接 `message.reject()`
-- `FROM_ADDRESS`
-
-  - 自动回复的发件人地址
-- `MAIL_DOMAIN`
-
-  - 用于生成 `Message-ID` 的域名部分
+- Reply 发件人地址
+  - 不再通过 `FROM_ADDRESS` / `SERVICE_ADDRESS` / `MAIL_DOMAIN` 配置
+  - Worker 会使用 Email Routing 路由到的收件人地址（`message.to` 的第一个地址）作为回复的 `From`
+  - `Message-ID` 的域名部分会从该 `From` 地址自动推导
 - `SystemPrompt`（默认：简短的专业邮件回复提示）
 
   - system prompt（注意大小写：当前 key 是 `SystemPrompt`）

@@ -12,11 +12,8 @@ export function loadConfig(env = {}) {
     timeoutMs: toInt(env.OPENAI_TIMEOUT_MS, 20000),
     enableWebSearch: toBool(env.OPENAI_ENABLE_WEB_SEARCH, true),
     enablePython: toBool(env.OPENAI_ENABLE_PYTHON, true),
-    fromAddress: env.FROM_ADDRESS,
-    serviceAddress: (env.SERVICE_ADDRESS).toLowerCase(),
     allowDomains: parseCsv(env.ALLOW_DOMAINS),
     blockDomains: parseCsv(env.BLOCK_DOMAINS),
-    domain: env.MAIL_DOMAIN,
   };
 
   // Basic validation with safe fallbacks
