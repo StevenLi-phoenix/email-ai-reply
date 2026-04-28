@@ -1,3 +1,5 @@
+![email-ai-reply banner](./banner.png)
+
 # email-ai-reply
 
 Cloudflare Email Worker：收到发到指定邮箱地址的来信后，使用 OpenAI 生成一段简短、礼貌、专业的回复，并通过 `message.reply()` 自动回信。
