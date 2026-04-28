@@ -1,6 +1,7 @@
-name = "email-ai-reply"
+name = "email-ai-executor"
 main = "worker.js"
 compatibility_date = "2025-04-28"
+compatibility_flags = ["nodejs_compat"]
 
 [observability]
   [observability.logs]
