@@ -2,13 +2,14 @@ import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 import { createLog } from "../core/log.js";
 
-const log = createLog("ai");
-
 /**
  * Generate an email reply using Anthropic Claude (primary) with OpenAI as HA fallback.
  * Falls back to OpenAI on any Anthropic error except auth failures.
  */
 export async function generateReply({ cfg, subject, content }) {
+  // createLog must be called inside a handler — crypto.randomUUID() is not
+  // allowed in CF Workers global scope.
+  const log = createLog("ai");
   const userText = buildPrompt(subject, content);
 
   if (cfg.anthropicApiKey) {
