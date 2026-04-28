@@ -54,10 +54,13 @@ export default {
 
     const replyTo = resolveReplyTo(parsed, from);
 
-    // 4. Build the AI prompt from the parsed plain-text body.
+    // 4. Inject runtime context into system prompt (datetime, envelope info).
+    cfg.systemPrompt = injectRuntimeContext(cfg.systemPrompt, { from, to: routedTo });
+
+    // 5. Build the AI prompt from the parsed plain-text body.
     const userContent = (parsed.text || htmlToText(parsed.html) || "").trim();
 
-    // 5. Generate reply (Anthropic primary → OpenAI fallback).
+    // 6. Generate reply (Anthropic primary → OpenAI fallback).
     let aiText;
     try {
       aiText = await generateReply({ cfg, subject, content: userContent });
@@ -67,7 +70,7 @@ export default {
       return;
     }
 
-    // 6. Compose MIME reply with proper threading and anti-loop headers.
+    // 7. Compose MIME reply with proper threading and anti-loop headers.
     const composed = composeReply({
       from: routedTo,
       to: replyTo,
@@ -79,7 +82,7 @@ export default {
       replyText: aiText,
     });
 
-    // 7. Send.
+    // 8. Send.
     try {
       const replyMsg = new EmailMessage(routedTo, replyTo, composed.stream);
       await message.reply(replyMsg);
@@ -99,6 +102,23 @@ export default {
 };
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
+
+/**
+ * Append a runtime context block to the base system prompt.
+ * Called once per request so datetime and envelope info are always fresh.
+ */
+function injectRuntimeContext(basePrompt, { from, to }) {
+  const now = new Date();
+  const lines = [
+    "---",
+    "## Runtime context (injected at request time)",
+    `Date/time: ${now.toUTCString()}`,
+    `Day: ${now.toLocaleDateString("en-US", { weekday: "long", timeZone: "America/New_York" })}`,
+    `Inbox address: ${to}`,
+    `Sender address: ${from}`,
+  ];
+  return `${basePrompt}\n\n${lines.join("\n")}`;
+}
 
 function extractEmail(v) {
   if (!v) return "";
