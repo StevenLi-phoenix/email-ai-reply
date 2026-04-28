@@ -4,7 +4,8 @@ import { createLog, redact } from "./src/core/log.js";
 import { parseEmail } from "./src/email/parse.js";
 import { shouldReply, resolveReplyTo } from "./src/email/guards.js";
 import { composeReply } from "./src/email/compose.js";
-import { generateReply } from "./src/ai/openai.js";
+import { generateReply as generateReplyOpenAI } from "./src/ai/openai.js";
+import { generateReply as generateReplyAnthropic } from "./src/ai/anthropic.js";
 
 export default {
   async email(message, env, ctx) {
@@ -67,7 +68,8 @@ export default {
       ""
     ).trim();
 
-    // Generate AI reply
+    // Generate AI reply — provider selected by config (openai | anthropic)
+    const generateReply = cfg.provider === "anthropic" ? generateReplyAnthropic : generateReplyOpenAI;
     const aiText = await generateReply({ cfg, subject, content: userContent });
 
     // Compose MIME reply (text + optional HTML)
@@ -106,7 +108,13 @@ export default {
     if (url.pathname === "/health") {
       const cfg = loadConfig(env);
       return new Response(
-        JSON.stringify({ ok: true, service: "email-ai-reply", model: cfg.model, time: Date.now() }),
+        JSON.stringify({
+          ok: true,
+          service: "email-ai-reply",
+          provider: cfg.provider,
+          model: cfg.provider === "anthropic" ? cfg.anthropicModel : cfg.model,
+          time: Date.now(),
+        }),
         { status: 200, headers: { "Content-Type": "application/json" } }
       );
     }

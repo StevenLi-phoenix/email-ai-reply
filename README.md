@@ -2,21 +2,22 @@
 
 # email-ai-reply
 
-Cloudflare Email Worker：收到发到指定邮箱地址的来信后，使用 OpenAI 生成一段简短、礼貌、专业的回复，并通过 `message.reply()` 自动回信。
+Cloudflare Email Worker：收到发到指定邮箱地址的来信后，使用 **OpenAI 或 Anthropic Claude** 生成一段简短、礼貌、专业的回复，并通过 `message.reply()` 自动回信。
 
 ## 功能概览
 
 - 解析原始 MIME 邮件（`text/plain` / `text/html` / 常见 `multipart/*`）
 - 基于头部策略过滤（避免自动回复循环、群发/列表邮件等）
-- 使用 OpenAI **Responses API** 生成回复（默认模型 `gpt-5.2`）
-- 可选启用工具：Web Search + Python（Code Interpreter）
+- **多 provider 支持**：OpenAI Responses API（默认 `gpt-5.2`）或 Anthropic Messages API（默认 `claude-sonnet-4-6`）
+- 可选启用工具（OpenAI）：Web Search + Python（Code Interpreter）
 - 生成带 `In-Reply-To` / `References` 的回复邮件，并引用原邮件内容作为 quoted text
 
 ## 目录结构
 
 - `worker.js`：Cloudflare Worker 入口（Email + HTTP `/health`）
-- `src/core/config.js`：配置加载与默认值
+- `src/core/config.js`：配置加载与默认值（含 provider 路由）
 - `src/ai/openai.js`：调用 OpenAI Responses API
+- `src/ai/anthropic.js`：调用 Anthropic Messages API
 - `src/email/parse.js`：解析邮件正文与 headers
 - `src/email/guards.js`：是否应自动回复的策略
 - `src/email/compose.js`：生成回复邮件的 MIME（text/html + text/plain）
@@ -31,8 +32,9 @@ Cloudflare Email Worker：收到发到指定邮箱地址的来信后，使用 Op
 
 在 Cloudflare Worker（或 `wrangler.toml` 的 `[vars]`）中设置：
 
-- 必填：`OPENAI_API_KEY`
-- 其他配置见下方“配置项”章节
+- 使用 OpenAI：设置 `OPENAI_API_KEY`
+- 使用 Anthropic：设置 `ANTHROPIC_API_KEY`（同时将 `AI_PROVIDER=anthropic`，或仅设置该 key 系统会自动检测）
+- 其他配置见下方”配置项”章节
 
 ### 3) 本地预览（不包含真实 Email Routing）
 
@@ -65,7 +67,13 @@ npx wrangler versions upload
 
 配置来源：`wrangler.toml` 的 `[vars]` + Worker 运行时 `env`。
 
-### OpenAI（必看）
+### Provider 选择
+
+- `AI_PROVIDER`（默认：自动检测）
+  - 显式设置 `openai` 或 `anthropic`
+  - 若不设置：只有 `ANTHROPIC_API_KEY` 时自动切换到 Anthropic；否则默认 OpenAI
+
+### OpenAI
 
 - `OPENAI_API_KEY`（必填）
 
@@ -103,6 +111,16 @@ OpenAI 工具通过 `tools` 参数启用：
 
 - 项目在 system prompt 中加入了约束：**允许搜索，但禁止把敏感邮件内容/个人信息带入搜索查询**。
 - 即使开启工具，也建议你把系统提示词写得更严格，尤其在处理隐私邮件场景。
+
+### Anthropic
+
+- `ANTHROPIC_API_KEY`（使用 Anthropic 时必填）
+- `ANTHROPIC_MODEL`（默认：`claude-sonnet-4-6`）
+  - 推荐模型：`claude-sonnet-4-6`（最新 Sonnet）、`claude-haiku-4-5-20251001`（更快更省）
+- `ANTHROPIC_BASE_URL`（默认：`https://api.anthropic.com`）
+  - 可切换代理或内部网关
+
+> Anthropic provider 不支持 Web Search / Code Interpreter 工具（当前实现），只使用纯 Messages API。
 
 ### 邮件行为与策略
 
