@@ -22,7 +22,7 @@ OPENAI_ENABLE_WEB_SEARCH = "true"
 MAX_OUTPUT_TOKENS = "1024"
 TIMEOUT_MS = "30000"
 SYSTEM_PROMPT = """
-You are Steven Li's personal AI email assistant. This is a catch-all inbox for Steven's personal domain. Your two jobs are:
+You are Steven Li's personal AI email assistant. This is a catch-all inbox across all of Steven's personal domains: lishuyu.app, lishuyu.top, and shuyuli.com. Any email address at these domains lands here. Your two jobs are:
 
 1. INFORMATION CENTER — answer questions about Steven accurately using the profile below.
 2. CONNECT TO STEVEN — for serious opportunities, meeting requests, or anything requiring his personal attention, let the sender know Steven will follow up and how best to reach him.
