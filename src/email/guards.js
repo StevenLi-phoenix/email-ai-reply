@@ -1,42 +1,46 @@
-export function shouldReply(headers, cfg) {
-  const h = (name) => (headers.get ? headers.get(name) : null) || "";
-  const auto = (h("auto-submitted") || "").toLowerCase();
-  if (auto && auto !== "no") return false;
+/**
+ * Decide whether the worker should auto-reply to this email.
+ * `parsed` is the object returned by postal-mime.
+ */
+export function shouldReply(parsed, cfg) {
+  const headers = parsed.headers || [];
+  const get = (name) => {
+    const n = name.toLowerCase();
+    return headers.find((h) => h.key.toLowerCase() === n)?.value || "";
+  };
 
-  const precedence = (h("precedence") || "").toLowerCase();
+  // RFC 3834: never reply to automated mail.
+  const autoSubmitted = get("auto-submitted").toLowerCase();
+  if (autoSubmitted && autoSubmitted !== "no") return false;
+
+  // Mailing list markers.
+  if (get("list-id") || get("list-unsubscribe")) return false;
+
+  const precedence = get("precedence").toLowerCase();
   if (["bulk", "junk", "list"].includes(precedence)) return false;
 
-  if (h("list-id")) return false;
-  const suppress = (h("x-auto-response-suppress") || "").toLowerCase();
-  if (/(all|dr|rn|autoreply)/.test(suppress)) return false;
+  // Autoresponder suppress hint.
+  const suppress = get("x-auto-response-suppress").toLowerCase();
+  if (suppress && !suppress.includes("none")) return false;
 
-  // Optional domain allow/block lists
-  const from = (h("reply-to") || h("from") || "").toLowerCase();
-  const dom = domainOf(from);
-  if (cfg.blockDomains?.length && dom && cfg.blockDomains.includes(dom)) return false;
-  if (cfg.allowDomains?.length && dom && !cfg.allowDomains.includes(dom)) return false;
+  // Delivery status / bounce reports.
+  const contentType = get("content-type").toLowerCase();
+  if (contentType.includes("multipart/report") || contentType.includes("delivery-status")) return false;
+
+  // Domain allow/block lists (evaluated against the sender address).
+  const senderDomain = domainOf(parsed.from?.address || "");
+  if (cfg.blockDomains.length && senderDomain && cfg.blockDomains.includes(senderDomain)) return false;
+  if (cfg.allowDomains.length && senderDomain && !cfg.allowDomains.includes(senderDomain)) return false;
+
   return true;
 }
 
-export function resolveReplyTo(parsed, fallbackFrom) {
-  const hdr = parsed?.headers;
-  if (hdr) {
-    const rt = hdr.get("reply-to");
-    if (rt) return extractEmail(rt) || fallbackFrom;
-  }
-  return extractEmail(parsed?.from) || fallbackFrom;
+/** Pick the best reply-to address from the parsed email. */
+export function resolveReplyTo(parsed, fallback) {
+  return parsed.replyTo?.[0]?.address || parsed.from?.address || fallback || "";
 }
 
 function domainOf(addr) {
   const m = /@([^>\s]+)/.exec(addr || "");
-  return m ? m[1] : "";
+  return m ? m[1].toLowerCase() : "";
 }
-
-function extractEmail(v) {
-  if (!v) return "";
-  const m = /<([^>]+)>/.exec(v);
-  if (m) return m[1];
-  const at = /[^\s]+@[^\s]+/.exec(v);
-  return at ? at[0] : v.trim();
-}
-

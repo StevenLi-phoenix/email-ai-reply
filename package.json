@@ -1,14 +1,22 @@
 {
   "name": "email-ai-reply",
-  "version": "0.1.0",
-  "private": true,
+  "version": "2.0.0",
   "type": "module",
+  "license": "MIT",
   "scripts": {
-    "build": "npx wrangler versions upload",
-    "deploy": "npx wrangler versions upload",
-    "preview": "npx wrangler dev --local"
+    "dev": "wrangler dev",
+    "deploy": "wrangler versions upload",
+    "test": "vitest"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.51.0",
+    "mimetext": "^3.0.26",
+    "openai": "^5.0.0",
+    "postal-mime": "^2.3.1"
   },
   "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.8.0",
+    "vitest": "^3.0.0",
+    "wrangler": "^4.0.0"
   }
 }
-

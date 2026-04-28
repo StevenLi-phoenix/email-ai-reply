@@ -1,142 +1,59 @@
-const CRLF = "\r\n";
+import { createMimeMessage } from "mimetext";
 
-export function composeReply({ fromAddress, to, original, replyText, quoteMaxChars = 4000 }) {
-  const subject = ensureRe(original.subject || "");
-  const msgId = makeMessageId(domainOf(fromAddress) || "local");
-  const refs = buildReferences(original);
+/**
+ * Build a reply MIME message.
+ *
+ * @param {object} opts
+ * @param {string} opts.from        - Sender address (the routed Worker address)
+ * @param {string} opts.to          - Recipient address
+ * @param {object} opts.original    - { subject, messageId, references }
+ * @param {string} opts.replyText   - AI-generated reply body
+ * @returns {{ stream: ReadableStream, subject: string, size: number }}
+ */
+export function composeReply({ from, to, original, replyText }) {
+  const subject = ensureRe(sanitizeHeader(original.subject || ""));
 
-  // Plain text body
-  const quoted = quoteOriginal(original, quoteMaxChars);
-  const textBody = (quoted ? `${replyText}\n\n${quoted}` : `${replyText}`).replace(/\r?\n/g, "\n");
+  const msg = createMimeMessage();
+  msg.setSender(from);
+  msg.setRecipient(to);
+  msg.setSubject(subject);
 
-  // Simple HTML version mirroring text
-  const quotedHtml = quoteSnippet(original, quoteMaxChars);
-  const htmlBody = `<!doctype html><html><body><div>${escapeHtml(
-    replyText
-  ).replace(/\n/g, "<br>")}</div>${
-    quotedHtml
-      ? `<hr><blockquote style="border-left:3px solid #ccc;padding-left:8px;color:#555">${escapeHtml(
-          quotedHtml
-        ).replace(/\n/g, "<br>")}</blockquote>`
-      : ""
-  }</body></html>`;
+  // Threading headers
+  if (original.messageId) {
+    const mid = wrapMsgId(original.messageId);
+    msg.setHeader("In-Reply-To", mid);
+    const refs = [original.references, mid].filter(Boolean).join(" ").trim();
+    if (refs) msg.setHeader("References", refs);
+  }
 
-  const boundary = `b_${Math.random().toString(36).slice(2)}`;
-  const headers = [
-    `Message-ID: ${msgId}`,
-    refs.inReplyTo ? `In-Reply-To: ${refs.inReplyTo}` : null,
-    refs.references ? `References: ${refs.references}` : null,
-    `Subject: ${subject}`,
-    `From: AI Email Assistant <${fromAddress}>`,
-    `To: ${to}`,
-    `MIME-Version: 1.0`,
-    `Content-Type: multipart/alternative; boundary="${boundary}"`,
-  ]
-    .filter(Boolean)
-    .join(CRLF);
+  // Anti-loop headers (RFC 3834) — prevent autoresponder chains.
+  msg.setHeader("Auto-Submitted", "auto-replied");
+  msg.setHeader("Precedence", "bulk");
+  msg.setHeader("X-Auto-Response-Suppress", "All");
 
-  const body =
-    `--${boundary}${CRLF}` +
-    `Content-Type: text/plain; charset=utf-8${CRLF}` +
-    `Content-Transfer-Encoding: 8bit${CRLF}${CRLF}` +
-    textBody.replace(/\n/g, CRLF) +
-    `${CRLF}--${boundary}${CRLF}` +
-    `Content-Type: text/html; charset=utf-8${CRLF}` +
-    `Content-Transfer-Encoding: 8bit${CRLF}${CRLF}` +
-    htmlBody.replace(/\n/g, CRLF) +
-    `${CRLF}--${boundary}--${CRLF}`;
+  msg.addMessage({ contentType: "text/plain", data: replyText });
 
-  const raw = headers + CRLF + CRLF + body;
+  const raw = msg.asRaw();
   const bytes = new TextEncoder().encode(raw);
+  const stream = new ReadableStream({
+    start(controller) {
+      controller.enqueue(bytes);
+      controller.close();
+    },
+  });
 
-  return {
-    subject,
-    size: bytes.byteLength,
-    stream: new ReadableStream({
-      start(controller) {
-        controller.enqueue(bytes);
-        controller.close();
-      },
-    }),
-  };
+  return { stream, subject, size: bytes.length };
 }
 
 function ensureRe(s) {
-  return /^\s*re:/i.test(s) ? s : (s ? `Re: ${s}` : "Re:");
+  return /^\s*re:/i.test(s) ? s : `Re: ${s || "(no subject)"}`;
 }
 
-function makeMessageId(domain) {
-  const token = `${Date.now()}.${Math.random().toString(36).slice(2, 11)}`;
-  return `<${token}@${domain}>`;
+function wrapMsgId(id) {
+  const s = String(id).trim();
+  return s.startsWith("<") ? s : `<${s}>`;
 }
 
-function domainOf(addr) {
-  const m = /@([^>\s]+)/.exec(addr || "");
-  return m ? m[1] : "";
-}
-
-function buildReferences(orig) {
-  // Cloudflare's Email `message.reply()` expects In-Reply-To to match the incoming Message-ID.
-  // Do not use the incoming In-Reply-To here (that points to the previous message in the thread).
-  const inReplyTo = orig.messageId ? String(orig.messageId) : "";
-
-  const ids = [];
-  ids.push(...extractMessageIds(orig.references));
-  ids.push(...extractMessageIds(orig.inReplyTo));
-  ids.push(...extractMessageIds(orig.messageId));
-
-  const seen = new Set();
-  const deduped = [];
-  for (const id of ids) {
-    if (seen.has(id)) continue;
-    seen.add(id);
-    deduped.push(id);
-  }
-
-  // Keep it small to avoid header limits and provider strictness.
-  const capped = deduped.slice(-50);
-  let references = capped.join(" ").trim();
-  if (references.length > 900) {
-    // Prefer keeping the newest IDs at the end.
-    const parts = capped.slice();
-    while (parts.length && parts.join(" ").length > 900) parts.shift();
-    references = parts.join(" ").trim();
-  }
-  return { inReplyTo, references };
-}
-
-function extractMessageIds(value) {
-  if (!value) return [];
-  const s = String(value);
-  const matches = s.match(/<[^<>\s]+>/g) || [];
-  // Defensive: Cloudflare/provider validation can be strict.
-  return matches.map((m) => m.trim()).filter((m) => m.startsWith("<") && m.endsWith(">") && !/\s/.test(m));
-}
-
-function quoteOriginal(orig, maxChars) {
-  const date = orig.date || new Date().toUTCString();
-  const from = orig.from || "";
-  const subj = orig.subject || "";
-  const content = quoteSnippet(orig, maxChars);
-  if (!content) return "";
-  const quoted = content
-    .split(/\r?\n/)
-    .map((l) => "> " + l)
-    .join("\n");
-  return `On ${date}, ${from} wrote:\nSubject: ${subj}\n\n${quoted}`;
-}
-
-function quoteSnippet(orig, maxChars = 4000) {
-  if (!maxChars || maxChars <= 0) return "";
-  const content = (orig.text || orig.htmlText || "").trim();
-  if (!content) return "";
-  return content.length > maxChars ? content.slice(0, maxChars) : content;
-}
-
-function escapeHtml(s) {
-  return String(s)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
+function sanitizeHeader(v) {
+  return String(v).replace(/[\r\n]+/g, " ").trim();
 }
